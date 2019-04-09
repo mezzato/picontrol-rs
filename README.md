@@ -1,6 +1,12 @@
 # picontrol-rs
 
-Rust version of the PiControl driver for the Revolution Pi
+Rust version of the PiControl driver for the Revolution Pi.
+
+## An example: pitestrs
+
+A command line tool to control the Pi Control process image is in the file [pitestrs.rs](src/bin/pitestrs.rs).
+The executable can be cross-compiled by launching `./build_pi.sh`.
+See below how to enable cross compilation.
 
 ## How to generate the Rust FFI bindings to C
 
