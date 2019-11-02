@@ -1,6 +1,6 @@
 use byteorder::{ByteOrder, LittleEndian};
 use clap::{App, Arg, SubCommand};
-use picontrol::{getModuleName, isModuleConnected, picontrol::*};
+use picontrol::{get_module_name, is_module_connected, picontrol::*};
 
 use std::str::FromStr;
 
@@ -49,7 +49,6 @@ fn main() {
         .arg(
             Arg::with_name("image-source")
                 .short("s")
-                .default_value("")
                 .help("The process image dumped file path, if empty the default is used"),
         )
         .subcommand(
@@ -102,6 +101,8 @@ fn main() {
 
     // this implements the drop trait, cleans up memory after going out of scope
     let mut picontrol = picontrol::RevPiControl::new();
+    
+
     if matches.is_present("image-source") {
         let m = matches.value_of("image-source").unwrap();
         picontrol = picontrol::RevPiControl::new_at(m);
@@ -120,7 +121,7 @@ fn main() {
     }
 
     if matches.is_present("device-list") {
-        match picontrol.getDeviceInfoList() {
+        match picontrol.get_device_info_list() {
             Err(err) => {
                 println!("ls error: {}", err);
                 return;
@@ -190,18 +191,18 @@ fn read_variable_value(
     // cyclic: bool,
     format: Formats,
     quiet: bool,
-) -> Result<bool, Box<std::error::Error>> {
+) -> Result<bool, Box<dyn std::error::Error>> {
     let mut spivalue: SPIValue = SPIValue {
         ..Default::default()
     };
 
-    let spivariable = picontrol.getVariableInfo(name)?;
+    let spivariable = picontrol.get_variable_info(name)?;
 
     if spivariable.i16uLength == 1 {
         spivalue.i16uAddress = spivariable.i16uAddress;
         spivalue.i8uBit = spivariable.i8uBit;
 
-        picontrol.getBitValue(&mut spivalue)?;
+        picontrol.get_bit_value(&mut spivalue)?;
         if !quiet {
             println!("Bit value: {}", spivalue.i8uValue);
         } else {
@@ -256,7 +257,7 @@ fn read_variable_value(
                             println!("{} byte value of {}: ", size, name);
                         }
 
-                        let bn = picontrol::numToBytes(u32_value as u64, 32).unwrap();
+                        let bn = picontrol::num_to_bytes(u32_value as u64, 32).unwrap();
                         println!("binary value: {:x?}", bn);
                     }
                     _ => {
@@ -290,8 +291,8 @@ fn write_variable_value(
     picontrol: &mut picontrol::RevPiControl,
     name: &str,
     i32u_value: u32,
-) -> Result<bool, Box<std::error::Error>> {
-    let spivariable = picontrol.getVariableInfo(name)?;
+) -> Result<bool, Box<dyn std::error::Error>> {
+    let spivariable = picontrol.get_variable_info(name)?;
 
     let mut spivalue: SPIValue = SPIValue {
         ..Default::default()
@@ -301,7 +302,7 @@ fn write_variable_value(
         spivalue.i16uAddress = spivariable.i16uAddress;
         spivalue.i8uBit = spivariable.i8uBit;
         spivalue.i8uValue = i32u_value as u8;
-        picontrol.setBitValue(&mut spivalue)?;
+        picontrol.set_bit_value(&mut spivalue)?;
     } else {
         /*
         match spivariable.i16uLength {
@@ -311,7 +312,7 @@ fn write_variable_value(
         };
         */
 
-        let bn = picontrol::numToBytes(i32u_value as u64, 32)?;
+        let bn = picontrol::num_to_bytes(i32u_value as u64, 32)?;
         println!("binary value: {:x?}", bn);
 
         picontrol.write(spivariable.i16uAddress as u64, &bn)?;
@@ -331,7 +332,7 @@ fn show_device_list(as_dev_list: Vec<SDeviceInfo>) {
     println!("Found {} devices:", devcount);
     for &dev in &as_dev_list {
         // println!("Found {} devices:", dev.i16uModuleType);
-        let mn = getModuleName(dev.i16uModuleType as u32);
+        let mn = get_module_name(dev.i16uModuleType as u32);
 
         // Show device number, address and module type
         println!(
@@ -347,7 +348,7 @@ fn show_device_list(as_dev_list: Vec<SDeviceInfo>) {
         if dev.i8uActive > 0 {
             println!("Module is present");
         } else {
-            if isModuleConnected(dev.i16uModuleType as u32) {
+            if is_module_connected(dev.i16uModuleType as u32) {
                 println!("Module is NOT present, data is NOT available!!!");
             } else {
                 println!("Module is present, but NOT CONFIGURED!!!");

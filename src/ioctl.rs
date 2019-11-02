@@ -9,10 +9,10 @@ pub const KB_SET_VALUE: u32 = request_code_none!(picontrol::KB_IOC_MAGIC, 16) as
 
 ioctl_none_bad!(reset, KB_RESET);
 ioctl_read_bad!(
-    getDeviceInfoList,
+    get_device_info_list,
     KB_GET_DEVICE_INFO_LIST,
     picontrol::SDeviceInfo
 );
-ioctl_read_bad!(getVariableInfo, KB_FIND_VARIABLE, picontrol::SPIVariable);
-ioctl_read_bad!(getBitValue, KB_GET_VALUE, picontrol::SPIValue);
-ioctl_read_bad!(setBitValue, KB_SET_VALUE, picontrol::SPIValue);
+ioctl_read_bad!(get_variable_info, KB_FIND_VARIABLE, picontrol::SPIVariable);
+ioctl_read_bad!(get_bit_value, KB_GET_VALUE, picontrol::SPIValue);
+ioctl_read_bad!(set_bit_value, KB_SET_VALUE, picontrol::SPIValue);

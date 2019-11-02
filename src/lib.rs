@@ -2,7 +2,6 @@
 //!
 //! A library to control the Revolution Pi industrial PLC based on the Raspberry Pi.
 
-
 #![allow(non_upper_case_globals)]
 #![allow(non_camel_case_types)]
 #![allow(non_snake_case)]
@@ -56,7 +55,7 @@ impl Default for picontrol::SPIValue {
     }
 }
 
-fn byteToInt8Array(name: &str) -> [::std::os::raw::c_char; 32] {
+fn byte_to_int8_array(name: &str) -> [::std::os::raw::c_char; 32] {
     let i8slice = unsafe { &*(name.as_bytes() as *const [u8] as *const [::std::os::raw::c_char]) };
     let mut bname: [::std::os::raw::c_char; 32] = Default::default();
     let (left, _) = bname.split_at_mut(i8slice.len());
@@ -65,7 +64,10 @@ fn byteToInt8Array(name: &str) -> [::std::os::raw::c_char; 32] {
 }
 
 // numToBytes converts a generic fixed-size value to its byte representation.
-pub fn numToBytes(num: u64, size: usize) -> std::result::Result<Vec<u8>, Box<std::error::Error>> {
+pub fn num_to_bytes(
+    num: u64,
+    size: usize,
+) -> std::result::Result<Vec<u8>, Box<dyn std::error::Error>> {
     match size {
         8 => return Ok(vec![num as u8]),
         16 => {
@@ -88,25 +90,37 @@ pub fn numToBytes(num: u64, size: usize) -> std::result::Result<Vec<u8>, Box<std
 }
 
 impl RevPiControl {
-
     pub fn new() -> Self {
         let c_str = CStr::from_bytes_with_nul(picontrol::PICONTROL_DEVICE).unwrap();
-        let path: &str = c_str.to_str().unwrap();
-        RevPiControl { handle: None, path: String::from(path) }
+        let path = String::from(c_str.to_str().unwrap());
+        RevPiControl { handle: None, path }
     }
 
     pub fn new_at(path: &str) -> Self {
-        RevPiControl { handle: None, path: path.to_owned() }
+        RevPiControl {
+            handle: None,
+            path: path.to_owned(),
+        }
     }
 
-    /// Open the Pi Control interface. 
+    /// Open the Pi Control interface.
     pub fn open(&mut self) -> io::Result<bool> {
         if let Some(_) = self.handle.as_mut() {
             return Ok(true);
         }
-
-
-        let file = OpenOptions::new().read(true).write(true).open(&self.path)?;
+        let file = OpenOptions::new()
+            .read(true)
+            .write(true)
+            .open(&self.path)
+            .map_err(|e| {
+                std::io::Error::new(
+                    std::io::ErrorKind::Other,
+                    format!(
+                        "can not open picontrol file descriptor at {}, error: {}",
+                        &self.path, e
+                    ),
+                )
+            })?;
         self.handle = Some(file);
         Ok(true)
     }
@@ -153,13 +167,13 @@ impl RevPiControl {
     }
 
     /// Get the info for a variable.
-    pub fn getVariableInfo(&self, name: &str) -> Result<picontrol::SPIVariable> {
+    pub fn get_variable_info(&self, name: &str) -> Result<picontrol::SPIVariable> {
         let f = self.handle.as_ref().ok_or(Sys(ENODEV))?;
         let mut v = picontrol::SPIVariable {
-            strVarName: byteToInt8Array(name),
+            strVarName: byte_to_int8_array(name),
             ..Default::default()
         };
-        let res = unsafe { ioctl::getVariableInfo(f.as_raw_fd(), &mut v) }?;
+        let res = unsafe { ioctl::get_variable_info(f.as_raw_fd(), &mut v) }?;
         if res < 0 {
             return Err(Sys(Errno::last()));
         }
@@ -167,13 +181,13 @@ impl RevPiControl {
     }
 
     /// Gets a description of connected devices.
-    pub fn getDeviceInfoList(&self) -> Result<Vec<picontrol::SDeviceInfo>> {
+    pub fn get_device_info_list(&self) -> Result<Vec<picontrol::SDeviceInfo>> {
         let f = self.handle.as_ref().ok_or(Sys(ENODEV))?;
         // let mut pDev: picontrol::SDeviceInfo = unsafe { mem::uninitialized() };
         let mut pDev = [picontrol::SDeviceInfo {
             ..Default::default()
         }; picontrol::REV_PI_DEV_CNT_MAX as usize];
-        let res = unsafe { ioctl::getDeviceInfoList(f.as_raw_fd(), &mut pDev[0]) }?;
+        let res = unsafe { ioctl::get_device_info_list(f.as_raw_fd(), &mut pDev[0]) }?;
         if res < 0 {
             return Err(Sys(Errno::last()));
         }
@@ -181,16 +195,16 @@ impl RevPiControl {
     }
 
     /// Gets the value of one bit in the process image.
-    pub fn getBitValue(&self, pSpiValue: &mut picontrol::SPIValue) -> Result<bool> {
-        return self.handleBitValue(pSpiValue, ioctl::getBitValue);
+    pub fn get_bit_value(&self, pSpiValue: &mut picontrol::SPIValue) -> Result<bool> {
+        return self.handle_bit_value(pSpiValue, ioctl::get_bit_value);
     }
 
     /// Sets the value of one bit in the process image.
-    pub fn setBitValue(&self, pSpiValue: &mut picontrol::SPIValue) -> Result<bool> {
-        return self.handleBitValue(pSpiValue, ioctl::setBitValue);
+    pub fn set_bit_value(&self, pSpiValue: &mut picontrol::SPIValue) -> Result<bool> {
+        return self.handle_bit_value(pSpiValue, ioctl::set_bit_value);
     }
 
-    fn handleBitValue(
+    fn handle_bit_value(
         &self,
         pSpiValue: &mut picontrol::SPIValue,
         func: unsafe fn(i32, *mut picontrol::SPIValueStr) -> std::result::Result<i32, nix::Error>,
@@ -211,11 +225,11 @@ impl RevPiControl {
     const LARGE_BUFFER_SIZE: usize = 64 * 1024;
 
     /// dumps the process image to a file.
-    /// 
+    ///
     /// # Arguments
     ///
     /// * `fp` - The file path
-    /// 
+    ///
     pub fn dump(&mut self, fp: &str) -> std::io::Result<(bool)> {
         let f = self
             .handle
@@ -265,8 +279,8 @@ impl Drop for RevPiControl {
     }
 }
 
-// getModuleName returns a friendly name for a RevPi module type.
-pub fn getModuleName(moduletype: u32) -> &'static str {
+// get_module_name returns a friendly name for a RevPi module type.
+pub fn get_module_name(moduletype: u32) -> &'static str {
     let moduletype = moduletype & picontrol::PICONTROL_NOT_CONNECTED_MASK;
     let moddes = match moduletype {
         95 => "RevPi Core",
@@ -295,7 +309,7 @@ pub fn getModuleName(moduletype: u32) -> &'static str {
 }
 
 // IsModuleConnected checks whether a RevPi module is conneted.
-pub fn isModuleConnected(moduletype: u32) -> bool {
+pub fn is_module_connected(moduletype: u32) -> bool {
     return moduletype & picontrol::PICONTROL_NOT_CONNECTED > 0;
 }
 
@@ -307,5 +321,4 @@ mod tests {
     fn picontrol_constants() {
         assert_eq!(picontrol::PICONTROL_DEVICE, b"/dev/piControl0\0");
     }
-
 }
