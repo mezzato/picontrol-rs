@@ -29,7 +29,40 @@ use std::os::unix::io::AsRawFd;
 
 #[allow(dead_code)]
 mod ioctl;
-pub mod picontrol;
+mod picontrol;
+pub use picontrol::*;
+
+#[derive(Debug)]
+pub enum CstrToStrError {
+    FromBytesWithNul(std::ffi::FromBytesWithNulError),
+    Utf8(std::str::Utf8Error),
+}
+
+impl From<std::str::Utf8Error> for CstrToStrError {
+    fn from(err: std::str::Utf8Error) -> CstrToStrError {
+        CstrToStrError::Utf8(err)
+    }
+}
+
+impl From<std::ffi::FromBytesWithNulError> for CstrToStrError {
+    fn from(err: std::ffi::FromBytesWithNulError) -> CstrToStrError {
+        CstrToStrError::FromBytesWithNul(err)
+    }
+}
+
+fn convert_cstr_to_str(
+    cstr: &[::std::os::raw::c_char],
+) -> std::result::Result<&str, CstrToStrError> {
+    let u8slice = unsafe { &*(cstr as *const _ as *const [u8]) };
+    let c_str = CStr::from_bytes_with_nul(u8slice).map_err(CstrToStrError::FromBytesWithNul)?;
+    c_str.to_str().map_err(CstrToStrError::Utf8)
+}
+
+impl SPIVariable {
+    pub fn name(&self) -> std::result::Result<&str, CstrToStrError> {
+        convert_cstr_to_str(&self.strVarName[..])
+    }
+}
 
 /// RevPiControl is an object representing an open file handle to the piControl driver file descriptor.
 pub struct RevPiControl {

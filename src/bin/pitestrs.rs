@@ -1,6 +1,6 @@
 use byteorder::{ByteOrder, LittleEndian};
 use clap::{App, Arg, SubCommand};
-use picontrol::{get_module_name, is_module_connected, picontrol::*};
+use picontrol::{get_module_name, is_module_connected,SDeviceInfo,SPIValue};
 
 use std::str::FromStr;
 
